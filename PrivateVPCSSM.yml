@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Private VPC with SSM VPC Endpoints
+Parameters:
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+  SubnetCIDR:
+    Type: String
+    Default: 10.0.0.0/24
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref SubnetCIDR
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+  
+  RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet
+      RouteTableId: !Ref RouteTable
+  
+  SSMVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      SubnetIds:
+        - !Ref Subnet
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref EndpointsSecurityGroup
+  
+  EC2MessagesVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      SubnetIds:
+        - !Ref Subnet
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref EndpointsSecurityGroup
+  
+  EndpointsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSM endpoint communication
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref VpcCIDR
+          Description: Allow communication with Endpoints
+  
+  #endpoint for ssm messages
+  SSMMessagesVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      SubnetIds:
+        - !Ref Subnet
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref EndpointsSecurityGroup
+
+  #Security group for instances with egress to EndpointsSecurityGroup
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow access to vpc endpoints only
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationSecurityGroupId: !GetAtt EndpointsSecurityGroup.GroupId
+        - IpProtocol: udp
+          Description: Allow DNS traffic to VPC Resolver
+          FromPort: 53
+          ToPort: 53
+          CidrIp: !GetAtt VPC.CidrBlock
+        - IpProtocol: tcp
+          Description: Allow DNS traffic to VPC Resolver
+          FromPort: 53
+          ToPort: 53
+          CidrIp: !GetAtt VPC.CidrBlock
+  
+  SSMIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  SSMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref SSMIAMRole
+
+Outputs:
+  VPC:
+    Description: VPC to launch migrated instances into
+    Value: !Ref VPC
+  Subnet:
+    Description: Subnet to launch migrated instances into
+    Value: !Ref Subnet
+  InstanceSecurityGroup:
+    Description: Security group to use for migrated instances
+    Value: !Ref InstanceSecurityGroup
+  SSMInstanceProfile:
+    Description: Instance profile to use for migrated instances
+    Value: !Ref SSMInstanceProfile
+    
+    
+

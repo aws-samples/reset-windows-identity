@@ -1,0 +1,33 @@
+---
+schemaVersion: "2.2"
+description: "Command Document to disjoin servers from currently joined domain"
+parameters:
+  Workgroup:
+    type: "String"
+    description: "Name of Workgroup"
+    default: "WORKGROUP"
+  Hostname:
+    type: "String"
+    description: "New hostname for the server - leave blank to keep current hostname"
+    default: ""
+  Restart:
+    type: "String"
+    description: "Reboot after running command - true or false"
+    default: "false"
+    allowedValues:
+    - "true"
+    - "false"
+    
+mainSteps:
+- action: "aws:runPowerShellScript"
+  name: "ResetIdentity"
+  maxAttempts: 1
+  precondition:
+    StringEquals:
+    - platformType
+    - Windows
+  inputs:
+    runCommand:
+    - "Remove-Computer -Workgroup {{ Workgroup }} -Force"
+    - "If ('{{ Hostname }}' -ne '') {Rename-Computer -NewName {{ Hostname }} -Force}"
+    - "If ('{{ Restart }}' -eq 'true') {Restart-Computer -Force}"
