@@ -1,6 +1,6 @@
 ## Reset Windows server identity settings using AWS Application Migration Service post-launch automation
 
-Read the full blog post [Reset Windows server identity settings using AWS Application Migration Service post-launch automation](https://aws.amazon.com/blogs/migration-and-modernization/reset-windows-server-identity-settings-using-aws-application-migration-service-post-launch-automation) (Yet to be published)
+Read the full blog post [Reset Windows server identity settings using AWS Application Migration Service post-launch automation](https://aws.amazon.com/blogs/migration-and-modernization/reset-windows-server-identity-settings-using-aws-application-migration-service-post-launch-automation/)
 
 
 ### Isolated VPC
